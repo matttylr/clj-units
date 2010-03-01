@@ -270,7 +270,6 @@
 ;
 ; Macros for defining unit systems, dimensions, and units
 ;
-
 (defmacro defdimension*
   [unit-system name exponents]
   (let [type-kw (keyword (str (ns-name *ns*)) (str name))]
@@ -317,5 +316,8 @@
 			    :base-dimensions ~(quote-all dimensions)
 			    :base-units ~(quote-all units)
 			    :base-unit-symbols ~(quote-all unit-symbols)}))
+       (let [exp# ~(cons 'list (repeat (count dimensions) 0))
+	     dim# (dimension* ~us-name exp# (fn [a# b#] a#) nil)]
+	 (swap! ~us-name assoc exp# dim#))
        ~@dimension-defs
        ~@unit-defs)))
