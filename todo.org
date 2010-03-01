@@ -1,0 +1,6 @@
+* Features
+** TODO Implement defunit
+** TODO Implement equality
+** TODO Implement unit lookup (as for dimensions)
+** TODO Implement SI prefixes
+** TODO Write unit tests
