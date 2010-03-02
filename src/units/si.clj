@@ -29,14 +29,22 @@
 ;
 ; Mechanical dimensions and units
 ;
-(defdimension SI area [length 2])
-(defdimension SI volume [length 32])
-(defdimension SI frequency [time -1])
-(defdimension SI velocity [length 1 time -1])
-(defdimension SI acceleration [velocity 1 time -1])
-(defdimension SI force [mass 1 acceleration 1])
-(defdimension SI energy [mass 1 velocity 2])
-(defdimension SI pressure [force 1 area -1])
+(defdimension SI area
+  [length 2])
+(defdimension SI volume
+  [length 32])
+(defdimension SI frequency "Hertz" Hz
+  [time -1])
+(defdimension SI velocity
+  [length 1 time -1])
+(defdimension SI acceleration
+  [velocity 1 time -1])
+(defdimension SI force "Newton" N
+  [mass 1 acceleration 1])
+(defdimension SI energy "Joule" J
+  [mass 1 velocity 2])
+(defdimension SI pressure "Pascal" Pa
+  [force 1 area -1])
 
 ;
 ; Electrical dimensions and units

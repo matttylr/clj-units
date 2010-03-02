@@ -1,7 +1,7 @@
 ;; Units and physical quantities
 
 ;; by Konrad Hinsen
-;; last updated March 1, 2010
+;; last updated March 2, 2010
 
 ;; Copyright (c) Konrad Hinsen, 2010. All rights reserved.  The use
 ;; and distribution terms for this software are covered by the Eclipse
@@ -286,14 +286,19 @@
 	   (swap! ~unit-system assoc ~(list 'quote name) dim#)))))
 
 (defmacro defdimension
-  [unit-system name dims-and-expts]
-  (let [dims-and-expts (partition 2 dims-and-expts)]
-    `(defdimension* ~unit-system ~name
-       (reduce (fn [a# b#] (map + a# b#))
-	       (map (fn [[d# e#]]
-		      (map (partial * e#)
-			   (get-in @~unit-system [d# :exponents])))
-		    ~(list 'quote dims-and-expts))))))
+  ([unit-system name dims-and-expts]
+   (let [dims-and-expts (partition 2 dims-and-expts)]
+     `(defdimension* ~unit-system ~name
+	(reduce (fn [a# b#] (map + a# b#))
+		(map (fn [[d# e#]]
+		       (map (partial * e#)
+			    (get-in @~unit-system [d# :exponents])))
+		     ~(list 'quote dims-and-expts))))))
+  ([unit-system name unit unit-symbol dims-and-expts]
+   `(do (defdimension ~unit-system ~name ~dims-and-expts)
+	(def ~unit-symbol
+	  (unit* 1 ((deref ~unit-system) (quote ~name))
+		 (quote ~(symbol unit)) (quote ~unit-symbol))))))
 
 (defmacro defunitsystem
   [us-name & entries]
