@@ -1,7 +1,7 @@
 ;; SI unit system
 
 ;; by Konrad Hinsen
-;; last updated March 1, 2010
+;; last updated March 2, 2010
 
 ;; Copyright (c) Konrad Hinsen, 2010. All rights reserved.  The use
 ;; and distribution terms for this software are covered by the Eclipse
@@ -11,10 +11,11 @@
 ;; agreeing to be bound by the terms of this license.  You must not
 ;; remove this notice, or any other, from this software.
 
-(ns units.si
-  (:refer-clojure :exclude (time force + - * /))
-  (:use [units :only (defunitsystem defdimension make-unit)]
-	[clojure.contrib.generic.arithmetic :only (+ - * /)]))
+(clojure.core/use 'nstools.ns)
+(ns+ units.si
+  (:clone nstools.generic-math)
+  (:remove force time)
+  (:use [units :only (defunitsystem defdimension make-unit)]))
 
 (defunitsystem SI
   length              "meter"     m
