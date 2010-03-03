@@ -33,8 +33,15 @@
 (deftype dimension*
   [unit-system
    exponents
-   quantity-ctor
    name])
+
+(deftype quantity
+  [magnitude unit]
+  :as this
+  Quantity
+  (dimension [] (dimension unit))
+  (magnitude [] magnitude)
+  (unit [] unit))
 
 (deftype unit*
   [#^Number factor
@@ -44,19 +51,11 @@
   :as this
   clojure.lang.IPersistentMap
   clojure.lang.IFn
-    (invoke [x] ((:quantity-ctor dimension) x this))
+    (invoke [x] (quantity x this))
   Quantity
     (dimension [] dimension)
     (magnitude [] 1)
     (unit [] this))
-
-(deftype quantity
-  [magnitude unit]
-  :as this
-  Quantity
-  (dimension [] (dimension unit))
-  (magnitude [] magnitude)
-  (unit [] unit))
 
 (remove-method print-method ::quantity)
 
@@ -86,7 +85,7 @@
 
 (defn- make-anonymous-dimension
   [unit-system exponents]
-  (let [dim (dimension* unit-system exponents quantity nil)]
+  (let [dim (dimension* unit-system exponents nil)]
     (swap! unit-system assoc exponents dim)
     dim))
 
@@ -168,8 +167,11 @@
 	base? (contains? (set (:base-units us)) (:name u))]
     (.write w "#:unit")
     (.write w "{")
-    (print-method (:name @(:unit-system (dimension u))) w)
+    (print-method (:name @(:unit-system d)) w)
     (.write w ":")
+    (when (:name d)
+      (print-method (:name d) w)
+      (.write w ":"))
     (when (:name u)
       (print-method (:name u) w)
       (when (:symbol u)
@@ -213,6 +215,10 @@
     (let [factor (/ (:factor old-unit) (:factor new-unit))]
       (new-unit (ga/* factor (:magnitude quantity))))))
 
+(defn dimension?
+  [dim quantity]
+  (= dim (dimension quantity)))
+
 ;
 ; Generic arithmethic for dimensions
 ;
@@ -237,11 +243,13 @@
 
 (defmethod ga/* [::quantity ::quantity]
   [x y]
-  (let [ux (unit x)
-	uy (unit y)
-	uprod (unit* (* (:factor ux) (:factor uy))
-		     (ga/* (:dimension ux) (:dimension uy)) nil nil)]
-  (uprod (ga/* (magnitude x) (magnitude y)))))
+  (let [ux  (unit x)
+	uy  (unit y)
+	dim (ga/* (:dimension ux) (:dimension uy))
+	ctor (if (= (:name dim) 'dimensionless)
+	       #(* (:factor ux) (:factor uy) %)
+	       (unit* (* (:factor ux) (:factor uy)) dim nil nil))]
+  (ctor (ga/* (magnitude x) (magnitude y)))))
 
 (defmethod ga/* [root-type ::quantity]
   [x y]
@@ -270,35 +278,28 @@
 ;
 ; Macros for defining unit systems, dimensions, and units
 ;
+
 (defmacro defdimension*
   [unit-system name exponents]
   (let [type-kw (keyword (str (ns-name *ns*)) (str name))]
-    `(do (deftype ~name [~'magnitude ~'unit] :as ~'this
-	   Quantity
-	   (~'dimension [] (dimension ~'unit))
-	   (~'magnitude [] ~'magnitude)
-	   (~'unit [] ~'unit))
-	 (remove-method print-method ~type-kw)
-	 (derive ~type-kw ::quantity)
-	 (let [exp# ~exponents
-	       dim# (dimension* ~unit-system exp# ~name ~(list 'quote name))]
-	   (swap! ~unit-system assoc exp# dim#)
-	   (swap! ~unit-system assoc ~(list 'quote name) dim#)))))
+    `(let [exp# ~exponents
+	   dim# (dimension* ~unit-system exp# ~(list 'quote name))]
+       (swap! ~unit-system assoc exp# dim#)
+       (swap! ~unit-system assoc ~(list 'quote name) dim#)
+       (def ~name dim#))))
 
 (defmacro defdimension
   ([unit-system name dims-and-expts]
-   (let [dims-and-expts (partition 2 dims-and-expts)]
+   (let [dims-and-expts (map #(cons 'list %) (partition 2 dims-and-expts))]
      `(defdimension* ~unit-system ~name
 	(reduce (fn [a# b#] (map + a# b#))
 		(map (fn [[d# e#]]
-		       (map (partial * e#)
-			    (get-in @~unit-system [d# :exponents])))
-		     ~(list 'quote dims-and-expts))))))
+		       (map (partial * e#) (:exponents d#)))
+		     ~(cons 'list dims-and-expts))))))
   ([unit-system name unit unit-symbol dims-and-expts]
    `(do (defdimension ~unit-system ~name ~dims-and-expts)
 	(def ~unit-symbol
-	  (unit* 1 ((deref ~unit-system) (quote ~name))
-		 (quote ~(symbol unit)) (quote ~unit-symbol))))))
+	  (unit* 1 ~name (quote ~(symbol unit)) (quote ~unit-symbol))))))
 
 (defmacro defunitsystem
   [us-name & entries]
@@ -312,7 +313,7 @@
 				       ~(list 'quote (exponents d))))
 			    dimensions)
 	unit-defs      (map (fn [[d u s]]
-			      `(def ~s (unit* 1 ((deref ~us-name) (quote ~d))
+			      `(def ~s (unit* 1 ~d
 					      (quote ~(symbol u))
 					      (quote ~s))))
 			    entries)]
@@ -322,7 +323,7 @@
 			    :base-units ~(quote-all units)
 			    :base-unit-symbols ~(quote-all unit-symbols)}))
        (let [exp# ~(cons 'list (repeat (count dimensions) 0))
-	     dim# (dimension* ~us-name exp# (fn [a# b#] a#) nil)]
+	     dim# (dimension* ~us-name exp# (quote ~'dimensionless))]
 	 (swap! ~us-name assoc exp# dim#))
        ~@dimension-defs
        ~@unit-defs)))

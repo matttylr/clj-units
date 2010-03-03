@@ -15,7 +15,7 @@
 (ns+ units.si
   (:clone nstools.generic-math)
   (:remove force time)
-  (:use [units :only (defunitsystem defdimension make-unit)]))
+  (:use [units :only (defunitsystem defdimension quantity make-unit)]))
 
 (defunitsystem SI
   length              "meter"     m
@@ -32,7 +32,7 @@
 (defdimension SI area
   [length 2])
 (defdimension SI volume
-  [length 32])
+  [length 3])
 (defdimension SI frequency "Hertz" Hz
   [time -1])
 (defdimension SI velocity
@@ -49,14 +49,17 @@
 ;
 ; Electrical dimensions and units
 ;
-(defdimension SI electric-charge [electric-current 1 time 1])
+(defdimension SI electric-charge "Coulomb" C
+  [electric-current 1 time 1])
 
+
+;(defunit km "kilometer" (* 1000 m))
 
 (def km (make-unit (* 1000 m) 'kilometer 'km))
 (def mn (make-unit (* 60 s) 'minute 'mn))
 (def h  (make-unit (* 60 mn) 'hour 'h))
 
 
-(def a-length (length 20 m))
-(def a-big-length (length 42 km))
-(def a-time (time 30 s))
+(def a-length (quantity 20 m))
+(def a-big-length (quantity 42 km))
+(def a-time (quantity 30 s))
