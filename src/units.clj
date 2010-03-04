@@ -1,7 +1,7 @@
 ;; Units and physical quantities
 
 ;; by Konrad Hinsen
-;; last updated March 2, 2010
+;; last updated March 4, 2010
 
 ;; Copyright (c) Konrad Hinsen, 2010. All rights reserved.  The use
 ;; and distribution terms for this software are covered by the Eclipse
@@ -14,6 +14,7 @@
 (ns units
   (:refer-clojure :exclude (time force))
   (:require [clojure.contrib.generic.arithmetic :as ga]
+	    [clojure.contrib.generic.comparison :as gc]
 	    [clojure.contrib.string :as string])
   (:use [clojure.contrib.generic :only (root-type)]))
 
@@ -24,6 +25,7 @@
 (defprotocol Quantity
   (dimension [x])
   (magnitude [x])
+  (magnitude-in-base-units [x])
   (unit [x]))
 
 ;
@@ -33,15 +35,18 @@
 (deftype dimension*
   [unit-system
    exponents
-   name])
-
-(deftype quantity
-  [magnitude unit]
+   name]
   :as this
-  Quantity
-  (dimension [] (dimension unit))
-  (magnitude [] magnitude)
-  (unit [] unit))
+  Object
+    (equals [#^ ::dimension* o]
+      (or (identical? this o)
+	  (and (identical? (type o) ::dimension*)
+	       (identical? (unit-system this) (unit-system o))
+	       (= exponents (:exponents o)))))
+    (hashCode []
+      (+ (.hashCode exponents))))
+
+(declare quantity)
 
 (deftype unit*
   [#^Number factor
@@ -49,15 +54,41 @@
    #^clojure.lang.Symbol name
    #^clojure.lang.Symbol symbol]
   :as this
-  clojure.lang.IPersistentMap
+;  clojure.lang.IPersistentMap
   clojure.lang.IFn
     (invoke [x] (quantity x this))
   Quantity
     (dimension [] dimension)
     (magnitude [] 1)
-    (unit [] this))
+    (magnitude-in-base-units [] factor)
+    (unit [] this)
+  Object
+    (equals [#^::unit* o]
+      (or (identical? this o)
+	  (and (identical? (type o) ::unit*)
+	       (= (dimension this) (dimension o))
+	       (= factor (:factor o)))))
+    (hashCode []
+      (+ (* 31 (.hashCode factor)) (.hashCode dimension))))
 
-(remove-method print-method ::quantity)
+(deftype quantity
+  [m
+   #^::unit* u]
+  :as this
+  Quantity
+    (dimension [] (dimension u))
+    (magnitude [] m)
+    (magnitude-in-base-units [] (ga/* m (magnitude-in-base-units u)))
+    (unit [] u)
+  Object
+    (equals [#^::quantity o]
+      (or (identical? this o)
+	  (and (identical? (type o) ::quantity)
+	       (= (dimension this) (dimension o))
+	       (gc/= (magnitude-in-base-units this)
+		     (magnitude-in-base-units o)))))
+    (hashCode []
+      (+ (* 31 (.hashCode m)) (.hashCode u))))
 
 ;
 ; Error checking
@@ -187,13 +218,13 @@
     (.write w "}")))
 
 (defmethod print-method ::quantity
-  [x #^java.io.Writer w]
+  [#^::quantity x #^java.io.Writer w]
   (let [u (unit x)
 	d (dimension x)]
     (.write w "#:")
     (.write w (if (:name d) (str (:name d)) "quantity"))
     (.write w "{")
-    (print-method (:magnitude x) w)
+    (print-method (magnitude x) w)
     (.write w " ")
     (cond
      (:symbol u)  (.write w (str (:symbol u)))
@@ -213,7 +244,7 @@
   (let [old-unit (unit quantity)]
     (assert-same-dimension old-unit new-unit)
     (let [factor (/ (:factor old-unit) (:factor new-unit))]
-      (new-unit (ga/* factor (:magnitude quantity))))))
+      (new-unit (ga/* factor (magnitude quantity))))))
 
 (defn dimension?
   [dim quantity]
@@ -235,7 +266,7 @@
   (get-dimension (:unit-system d) (map - (:exponents d))))
 
 ;
-; Generic arithmethic for units, and quantities
+; Generic arithmethic and comparison for units, and quantities
 ;
 
 (derive ::quantity root-type)
@@ -274,6 +305,30 @@
 (defmethod ga/- ::quantity
   [x]
   ((unit x) (ga/- (magnitude x))))
+
+(defmethod gc/zero? ::quantity
+  [x]
+  (gc/zero? (magnitude x)))
+
+(defmethod gc/pos? ::quantity
+  [x]
+  (gc/pos? (magnitude x)))
+
+(defmethod gc/neg? ::quantity
+  [x]
+  (gc/neg? (magnitude x)))
+
+(defmethod gc/> [::quantity ::quantity]
+  [x y]
+  (gc/pos? (magnitude (ga/- x y))))
+
+(defmethod gc/< [::quantity ::quantity]
+  [x y]
+  (gc/neg? (magnitude (ga/- x y))))
+
+(defmethod gc/= [::quantity ::quantity]
+  [x y]
+  (gc/zero? (magnitude (ga/- x y))))
 
 ;
 ; Macros for defining unit systems, dimensions, and units

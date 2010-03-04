@@ -1,7 +1,8 @@
 * Features
 ** DONE Check for dimensionless result in multiplication and division
 ** TODO Implement defunit
-** TODO Implement equality
+** DONE Implement equality
+** DONE Implement generic comparison
 ** TODO Implement unit lookup (as for dimensions)
 ** TODO Implement SI prefixes
 ** TODO Implement unit check in dimension-specific quantity constructors 
