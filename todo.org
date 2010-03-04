@@ -5,5 +5,4 @@
 ** DONE Implement generic comparison
 ** TODO Implement unit lookup (as for dimensions)
 ** TODO Implement SI prefixes
-** TODO Implement unit check in dimension-specific quantity constructors 
-** TODO Write unit tests
+** DONE Write unit tests
