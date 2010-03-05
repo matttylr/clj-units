@@ -1,7 +1,7 @@
 ;; SI unit system
 
 ;; by Konrad Hinsen
-;; last updated March 2, 2010
+;; last updated March 5, 2010
 
 ;; Copyright (c) Konrad Hinsen, 2010. All rights reserved.  The use
 ;; and distribution terms for this software are covered by the Eclipse
@@ -15,7 +15,7 @@
 (ns+ units.si
   (:clone nstools.generic-math)
   (:remove force time)
-  (:use [units :only (defunitsystem defdimension quantity make-unit)]))
+  (:from units defunitsystem defdimension quantity make-unit))
 
 (defunitsystem SI
   length              "meter"     m

@@ -1,7 +1,7 @@
 ;; Units and physical quantities
 
 ;; by Konrad Hinsen
-;; last updated March 4, 2010
+;; last updated March 5, 2010
 
 ;; Copyright (c) Konrad Hinsen, 2010. All rights reserved.  The use
 ;; and distribution terms for this software are covered by the Eclipse
@@ -11,12 +11,12 @@
 ;; agreeing to be bound by the terms of this license.  You must not
 ;; remove this notice, or any other, from this software.
 
-(ns units
-  (:refer-clojure :exclude (time force))
+(clojure.core/use 'nstools.ns)
+(ns+ units
   (:require [clojure.contrib.generic.arithmetic :as ga]
 	    [clojure.contrib.generic.comparison :as gc]
 	    [clojure.contrib.string :as string])
-  (:use [clojure.contrib.generic :only (root-type)]))
+  (:from clojure.contrib.generic root-type))
 
 ;
 ; Protocols
@@ -41,7 +41,7 @@
     (equals [#^ ::dimension* o]
       (or (identical? this o)
 	  (and (identical? (type o) ::dimension*)
-	       (identical? (unit-system this) (unit-system o))
+	       (identical? unit-system (:unit-system o))
 	       (= exponents (:exponents o)))))
     (hashCode []
       (+ (.hashCode exponents))))
@@ -248,7 +248,8 @@
 
 (defn dimension?
   [dim quantity]
-  (= dim (dimension quantity)))
+  (and (contains? #{::quantity ::unit*} (type quantity))
+       (= dim (dimension quantity))))
 
 ;
 ; Generic arithmethic for dimensions
@@ -336,12 +337,14 @@
 
 (defmacro defdimension*
   [unit-system name exponents]
-  (let [type-kw (keyword (str (ns-name *ns*)) (str name))]
+  (let [type-kw    (keyword (str (ns-name *ns*)) (str name))
+	query-name (symbol (str name "?"))]
     `(let [exp# ~exponents
 	   dim# (dimension* ~unit-system exp# ~(list 'quote name))]
        (swap! ~unit-system assoc exp# dim#)
        (swap! ~unit-system assoc ~(list 'quote name) dim#)
-       (def ~name dim#))))
+       (def ~name dim#)
+       (def ~query-name (partial dimension? ~name)))))
 
 (defmacro defdimension
   ([unit-system name dims-and-expts]
