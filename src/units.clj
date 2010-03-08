@@ -113,17 +113,22 @@
 ; Retrieving and constructing dimensions and units
 ;
 
-(defn- make-anonymous-dimension
-  [unit-system exponents]
-  (let [dim (dimension* unit-system exponents nil)]
-    (dosync (alter unit-system assoc exponents dim))
-    dim))
+(defn make-dimension
+  ([unit-system exponents]
+   (make-dimension unit-system exponents nil))
+  ([unit-system exponents name]
+   (let [dim (dimension* unit-system exponents name)]
+     (dosync
+       (alter unit-system assoc exponents dim)
+       (when name
+	 (alter unit-system assoc name dim)))
+     dim)))
 
 (defn- get-dimension
   [unit-system exponents]
   (if-let [dim (@unit-system exponents)]
     dim
-    (make-anonymous-dimension unit-system exponents)))
+    (make-dimension unit-system exponents)))
 
 (defn make-unit
   [quantity name symbol]
@@ -338,12 +343,8 @@
   [unit-system name exponents]
   (let [type-kw    (keyword (str (ns-name *ns*)) (str name))
 	query-name (symbol (str name "?"))]
-    `(let [exp# ~exponents
-	   dim# (dimension* ~unit-system exp# ~(list 'quote name))]
-       (dosync
-         (alter ~unit-system assoc exp# dim#)
-         (alter ~unit-system assoc ~(list 'quote name) dim#))
-       (def ~name dim#)
+    `(let [exp# ~exponents]
+       (def ~name (make-dimension ~unit-system exp# ~(list 'quote name)))
        (def ~query-name (partial dimension? ~name)))))
 
 (defmacro defdimension
@@ -380,8 +381,7 @@
 			   :base-dimensions ~(quote-all dimensions)
 			   :base-units ~(quote-all units)
 			   :base-unit-symbols ~(quote-all unit-symbols)}))
-       (let [exp# ~(cons 'list (repeat (count dimensions) 0))
-	     dim# (dimension* ~us-name exp# (quote ~'dimensionless))]
-	 (dosync (alter ~us-name assoc exp# dim#)))
+       (let [exp# ~(cons 'list (repeat (count dimensions) 0))]
+	 (make-dimension ~us-name exp# (quote ~'dimensionless)))
        ~@dimension-defs
        ~@unit-defs)))
