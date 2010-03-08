@@ -1,7 +1,7 @@
 ;; Units and physical quantities
 
 ;; by Konrad Hinsen
-;; last updated March 5, 2010
+;; last updated March 8, 2010
 
 ;; Copyright (c) Konrad Hinsen, 2010. All rights reserved.  The use
 ;; and distribution terms for this software are covered by the Eclipse
@@ -54,7 +54,6 @@
    #^clojure.lang.Symbol name
    #^clojure.lang.Symbol symbol]
   :as this
-;  clojure.lang.IPersistentMap
   clojure.lang.IFn
     (invoke [x] (quantity x this))
   Quantity
@@ -117,7 +116,7 @@
 (defn- make-anonymous-dimension
   [unit-system exponents]
   (let [dim (dimension* unit-system exponents nil)]
-    (swap! unit-system assoc exponents dim)
+    (dosync (alter unit-system assoc exponents dim))
     dim))
 
 (defn- get-dimension
@@ -341,8 +340,9 @@
 	query-name (symbol (str name "?"))]
     `(let [exp# ~exponents
 	   dim# (dimension* ~unit-system exp# ~(list 'quote name))]
-       (swap! ~unit-system assoc exp# dim#)
-       (swap! ~unit-system assoc ~(list 'quote name) dim#)
+       (dosync
+         (alter ~unit-system assoc exp# dim#)
+         (alter ~unit-system assoc ~(list 'quote name) dim#))
        (def ~name dim#)
        (def ~query-name (partial dimension? ~name)))))
 
@@ -376,12 +376,12 @@
 					      (quote ~s))))
 			    entries)]
     `(do
-       (def ~us-name (atom {:name (quote ~us-name)
-			    :base-dimensions ~(quote-all dimensions)
-			    :base-units ~(quote-all units)
-			    :base-unit-symbols ~(quote-all unit-symbols)}))
+       (def ~us-name (ref {:name (quote ~us-name)
+			   :base-dimensions ~(quote-all dimensions)
+			   :base-units ~(quote-all units)
+			   :base-unit-symbols ~(quote-all unit-symbols)}))
        (let [exp# ~(cons 'list (repeat (count dimensions) 0))
 	     dim# (dimension* ~us-name exp# (quote ~'dimensionless))]
-	 (swap! ~us-name assoc exp# dim#))
+	 (dosync (alter ~us-name assoc exp# dim#)))
        ~@dimension-defs
        ~@unit-defs)))
