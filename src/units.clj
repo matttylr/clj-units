@@ -131,13 +131,32 @@
     (make-dimension unit-system exponents)))
 
 (defn make-unit
-  [quantity name symbol]
-  (when-not (number? (magnitude quantity))
-    (throw (Exception. "Unit prefactor must be a number")))
-  (unit* (* (magnitude quantity) (:factor (unit quantity)))
-	 (dimension quantity)
-	 name
-	 symbol))
+  ([factor dimension]
+   (make-unit factor dimension nil nil))
+  ([factor dimension name symbol]
+   (let [unit-system (:unit-system dimension)
+	 u           (unit* factor dimension name symbol)]
+     (dosync
+       (alter unit-system assoc-in [:units dimension factor] u)
+       (when name
+	 (alter unit-system assoc name u)))
+     u)))
+
+(defn get-unit
+  [factor dimension]
+  (let [unit-system (:unit-system dimension)
+	unit        (get-in @unit-system [:units dimension factor])]
+    (if unit
+      unit
+      (make-unit factor dimension))))
+
+(defn as-unit
+  [quantity unit-name unit-symbol]
+  (let [dim    (dimension quantity)
+	factor (magnitude-in-base-units quantity)]
+    (when-not (number? factor)
+      (throw (Exception. "unit prefactor must be a number")))
+    (make-unit factor dim unit-name unit-symbol)))
 
 ;
 ; String formatting and printing
@@ -155,7 +174,7 @@
 
 (defn- base-units-with-exponents
   [d]
-  (with-exponents (:base-units @(:unit-system d)) (:exponents d)))
+  (with-exponents (:base-unit-names @(:unit-system d)) (:exponents d)))
 
 (defn- base-unit-symbols-with-exponents
   [d]
@@ -199,7 +218,7 @@
   [u #^java.io.Writer w]
   (let [d (dimension u)
 	us @(:unit-system d)
-	base? (contains? (set (:base-units us)) (:name u))]
+	base? (contains? (set (:base-unit-names us)) (:name u))]
     (.write w "#:unit")
     (.write w "{")
     (print-method (:name @(:unit-system d)) w)
@@ -284,7 +303,7 @@
 	dim (ga/* (:dimension ux) (:dimension uy))
 	ctor (if (= (:name dim) 'dimensionless)
 	       #(* (:factor ux) (:factor uy) %)
-	       (unit* (* (:factor ux) (:factor uy)) dim nil nil))]
+	       (get-unit (* (:factor ux) (:factor uy)) dim))]
   (ctor (ga/* (magnitude x) (magnitude y)))))
 
 (defmethod ga/* [root-type ::quantity]
@@ -298,7 +317,7 @@
 (ga/defmethod* ga / ::quantity
   [x]
   (let [u (unit x)
-	uinv (unit* (/ (:factor u)) ((ga/qsym ga /) (:dimension u)) nil nil)]
+	uinv (get-unit (/ (:factor u)) ((ga/qsym ga /) (:dimension u)))]
     (uinv ((ga/qsym ga /) (magnitude x)))))
 
 (defmethod ga/+ [::quantity ::quantity]
@@ -347,6 +366,15 @@
        (def ~name (make-dimension ~unit-system exp# ~(list 'quote name)))
        (def ~query-name (partial dimension? ~name)))))
 
+(defmacro defunit
+  ([unit-symbol unit-name factor quantity-or-dimension]
+   `(def ~unit-symbol
+      (make-unit ~factor ~quantity-or-dimension
+		 (quote ~(symbol unit-name)) (quote ~unit-symbol))))
+  ([unit-symbol unit-name quantity]
+   `(def ~unit-symbol
+      (as-unit ~quantity (quote ~(symbol unit-name)) (quote ~unit-symbol)))))
+
 (defmacro defdimension
   ([unit-system name dims-and-expts]
    (let [dims-and-expts (map #(cons 'list %) (partition 2 dims-and-expts))]
@@ -355,10 +383,9 @@
 		(map (fn [[d# e#]]
 		       (map (partial * e#) (:exponents d#)))
 		     ~(cons 'list dims-and-expts))))))
-  ([unit-system name unit unit-symbol dims-and-expts]
+  ([unit-system name unit-name unit-symbol dims-and-expts]
    `(do (defdimension ~unit-system ~name ~dims-and-expts)
-	(def ~unit-symbol
-	  (unit* 1 ~name (quote ~(symbol unit)) (quote ~unit-symbol))))))
+	(defunit ~unit-symbol ~unit-name 1 ~name))))
 
 (defmacro defunitsystem
   [us-name & entries]
@@ -379,8 +406,9 @@
     `(do
        (def ~us-name (ref {:name (quote ~us-name)
 			   :base-dimensions ~(quote-all dimensions)
-			   :base-units ~(quote-all units)
-			   :base-unit-symbols ~(quote-all unit-symbols)}))
+			   :base-unit-names ~(quote-all units)
+			   :base-unit-symbols ~(quote-all unit-symbols)
+			   :units {}}))
        (let [exp# ~(cons 'list (repeat (count dimensions) 0))]
 	 (make-dimension ~us-name exp# (quote ~'dimensionless)))
        ~@dimension-defs

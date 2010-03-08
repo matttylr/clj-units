@@ -1,7 +1,7 @@
 ;; SI unit system
 
 ;; by Konrad Hinsen
-;; last updated March 5, 2010
+;; last updated March 8, 2010
 
 ;; Copyright (c) Konrad Hinsen, 2010. All rights reserved.  The use
 ;; and distribution terms for this software are covered by the Eclipse
@@ -15,7 +15,7 @@
 (ns+ units.si
   (:clone nstools.generic-math)
   (:remove force time)
-  (:from units defunitsystem defdimension quantity make-unit))
+  (:from units defunitsystem defdimension defunit))
 
 (defunitsystem SI
   length              "meter"     m
@@ -53,13 +53,7 @@
   [electric-current 1 time 1])
 
 
-;(defunit km "kilometer" (* 1000 m))
+(defunit km "kilometer" (* 1000 m))
 
-(def km (make-unit (* 1000 m) 'kilometer 'km))
-(def mn (make-unit (* 60 s) 'minute 'mn))
-(def h  (make-unit (* 60 mn) 'hour 'h))
-
-
-(def a-length (quantity 20 m))
-(def a-big-length (quantity 42 km))
-(def a-time (quantity 30 s))
+(defunit mn "minute" (* 60 s))
+(defunit h "hour" (* 60 mn))

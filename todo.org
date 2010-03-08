@@ -1,8 +1,8 @@
 * Features
 ** DONE Check for dimensionless result in multiplication and division
-** TODO Implement defunit
+** DONE Implement defunit
 ** DONE Implement equality
 ** DONE Implement generic comparison
-** TODO Implement unit lookup (as for dimensions)
+** DONE Implement unit lookup (as for dimensions)
 ** TODO Implement SI prefixes
 ** DONE Write unit tests
