@@ -1,7 +1,7 @@
 ;; Tests for SI units
 
 ;; by Konrad Hinsen
-;; last updated March 4, 2010
+;; last updated March 8, 2010
 
 ;; Copyright (c) Konrad Hinsen, 2010. All rights reserved.  The use
 ;; and distribution terms for this software are covered by the Eclipse
@@ -14,8 +14,8 @@
 (clojure.core/use 'nstools.ns)
 (ns+ si-tests
   (:clone units.si)
-  (:use [units :only (dimension?)])
-  (:use [clojure.test :only (deftest is are run-tests)]))
+  (:from units dimension?)
+  (:from clojure.test deftest is are run-tests))
 
 (deftest dimension-arithmetic
   (are [x y] (= x y)

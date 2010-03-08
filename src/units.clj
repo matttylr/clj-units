@@ -13,20 +13,55 @@
 
 (clojure.core/use 'nstools.ns)
 (ns+ units
+  "This library defines three types to represent the basic concepts
+   of dimensional analysis and unit conversion:
+
+   1) Dimensions (length, time, velocity, ...)
+   2) Units  (m, s, ...)
+   3) Quantities (3 meters, 10 meters per second, ..)
+
+   A quantity consists of a magnitude and a unit. The magnitude can be of any
+   type that implements generic arithmetic (clojure.contrib.generic).
+   A unit consists of a factor (a number) and a dimension.
+   A unit system defines a set of base dimensions and associated base units.
+   Other dimensions are then defined as products of integer powers of the
+   base dimensions. Other units are defined as products of integer powers
+   of the base dimensions plus a numerical prefactor.
+
+   The generic arithmeric of clojure.contrib.generic.arithmetic is
+   implemented for quantities. Units can also be supplied as parameters,
+   but the result is always a quantity. Units and quantities can be
+   mutiplied with numbers, yielding quantities. Multiplication and
+   division are also implemented for dimensions, yielding dimensions.
+
+   The expected use of this library is to define a unit system with its
+   base dimensions and units using the defunitsystem macro and then adding
+   additional dimensions and units using the defdimension and defunit macros.
+   The only functions from this module meant for use in client code are
+   in-units-of, and dimension?. Other functions are public because
+   they are used in macro expansions, but should not be considered part of
+   the stable API of this library."
   (:require [clojure.contrib.generic.arithmetic :as ga]
 	    [clojure.contrib.generic.comparison :as gc]
 	    [clojure.contrib.string :as string])
   (:from clojure.contrib.generic root-type))
+
 
 ;
 ; Protocols
 ;
 
 (defprotocol Quantity
-  (dimension [x])
-  (magnitude [x])
-  (magnitude-in-base-units [x])
-  (unit [x]))
+  "Accessing information in quantities and units"
+  (dimension [x]
+  "return the dimension of quantity or unit x")
+  (magnitude [x]
+  "return the magnitude of quantity or unit x")
+  (magnitude-in-base-units [x]
+  "return the magnitude of quantity or unit x relative to the base
+   units of the unit system")
+  (unit [x]
+  "return the unit of quantity or unit x"))
 
 ;
 ; Types
@@ -114,6 +149,7 @@
 ;
 
 (defn make-dimension
+  "Create a new dimension. Used by the defdimension macro."
   ([unit-system exponents]
    (make-dimension unit-system exponents nil))
   ([unit-system exponents name]
@@ -125,12 +161,15 @@
      dim)))
 
 (defn- get-dimension
+  "Return the dimension corresponding to the supplied lists of exponents
+   in unit-system, creating it if necessary."
   [unit-system exponents]
   (if-let [dim (@unit-system exponents)]
     dim
     (make-dimension unit-system exponents)))
 
 (defn make-unit
+  "Create a new unit. Used by the defunit macro."
   ([factor dimension]
    (make-unit factor dimension nil nil))
   ([factor dimension name symbol]
@@ -142,7 +181,9 @@
 	 (alter unit-system assoc name u)))
      u)))
 
-(defn get-unit
+(defn- get-unit
+  "Return the unit corresponding to the supplied prefactor (relative
+   to the base units) and dimension, creating it if necessary."
   [factor dimension]
   (let [unit-system (:unit-system dimension)
 	unit        (get-in @unit-system [:units dimension factor])]
@@ -151,6 +192,8 @@
       (make-unit factor dimension))))
 
 (defn as-unit
+  "Create a unit from a physical object whose magnitude is a number.
+   Used by the defunit macro."
   [quantity unit-name unit-symbol]
   (let [dim    (dimension quantity)
 	factor (magnitude-in-base-units quantity)]
@@ -263,6 +306,8 @@
 ;
 
 (defn in-units-of
+  "Return the quantity expressed in the given unit, which
+   must have the same dimension as the quantity."
   [new-unit quantity]
   (let [old-unit (unit quantity)]
     (assert-same-dimension old-unit new-unit)
@@ -270,6 +315,7 @@
       (new-unit (ga/* factor (magnitude quantity))))))
 
 (defn dimension?
+  "Return true if dim is the dimension of quantity."
   [dim quantity]
   (and (contains? #{::quantity ::unit*} (type quantity))
        (= dim (dimension quantity))))
@@ -359,6 +405,8 @@
 ;
 
 (defmacro defdimension*
+  "Define dimension name in terms of its exponents relative to the
+   base dimensions of unit-system."
   [unit-system name exponents]
   (let [type-kw    (keyword (str (ns-name *ns*)) (str name))
 	query-name (symbol (str name "?"))]
@@ -367,27 +415,39 @@
        (def ~query-name (partial dimension? ~name)))))
 
 (defmacro defunit
-  ([unit-symbol unit-name factor quantity-or-dimension]
+  ([unit-symbol unit-name factor dimension]
    `(def ~unit-symbol
-      (make-unit ~factor ~quantity-or-dimension
+      (make-unit ~factor ~dimension
 		 (quote ~(symbol unit-name)) (quote ~unit-symbol))))
   ([unit-symbol unit-name quantity]
    `(def ~unit-symbol
       (as-unit ~quantity (quote ~(symbol unit-name)) (quote ~unit-symbol)))))
 
 (defmacro defdimension
-  ([unit-system name dims-and-expts]
-   (let [dims-and-expts (map #(cons 'list %) (partition 2 dims-and-expts))]
-     `(defdimension* ~unit-system ~name
+  "Define dimension name in unit-system "
+  ([name dims-and-expts]
+   (let [dims-and-expts (partition 2 dims-and-expts)
+	 unit-systems   (map (comp :unit-system first) dims-and-expts)
+	 first-dim      (first (first dims-and-expts))
+	 dims-and-expts (map #(cons 'list %) dims-and-expts)]
+     (assert (apply = unit-systems))
+     `(defdimension* (:unit-system ~first-dim) ~name
 	(reduce (fn [a# b#] (map + a# b#))
 		(map (fn [[d# e#]]
 		       (map (partial * e#) (:exponents d#)))
 		     ~(cons 'list dims-and-expts))))))
-  ([unit-system name unit-name unit-symbol dims-and-expts]
-   `(do (defdimension ~unit-system ~name ~dims-and-expts)
+  ([name unit-name unit-symbol dims-and-expts]
+   `(do (defdimension ~name ~dims-and-expts)
 	(defunit ~unit-symbol ~unit-name 1 ~name))))
 
 (defmacro defunitsystem
+  "Define a unit system in terms of base dimensions and associated
+   base units. Each dimension is specified by a dimension name
+   (a symbol), a unit name (a string) and a unit symbol (a symbol).
+   The dimension and unit symbols will be def'd in the current
+   namespace. Additionally, for each dimension a dimension
+   predicate will be created and def'd to a symbol made by adding
+   a question mark to the dimension name."
   [us-name & entries]
   (let [quote-all      (fn [v] (vec (map #(list 'quote %) v)))
 	entries        (partition 3 entries)
@@ -398,10 +458,7 @@
 	dimension-defs (map (fn [d] `(defdimension* ~us-name ~d
 				       ~(list 'quote (exponents d))))
 			    dimensions)
-	unit-defs      (map (fn [[d u s]]
-			      `(def ~s (unit* 1 ~d
-					      (quote ~(symbol u))
-					      (quote ~s))))
+	unit-defs      (map (fn [[d u s]] `(defunit ~s ~u 1 ~d))
 			    entries)]
     `(do
        (def ~us-name (ref {:name (quote ~us-name)
