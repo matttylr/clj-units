@@ -1,7 +1,7 @@
 ;; Units and physical quantities
 
 ;; by Konrad Hinsen
-;; last updated March 8, 2010
+;; last updated March 9, 2010
 
 ;; Copyright (c) Konrad Hinsen, 2010. All rights reserved.  The use
 ;; and distribution terms for this software are covered by the Eclipse
@@ -85,14 +85,14 @@
 
 (deftype unit*
   [#^Number factor
-   #^::dimension* dimension
+   #^::dimension* dim
    #^clojure.lang.Symbol name
    #^clojure.lang.Symbol symbol]
   :as this
   clojure.lang.IFn
     (invoke [x] (quantity x this))
   Quantity
-    (dimension [] dimension)
+    (dimension [] dim)
     (magnitude [] 1)
     (magnitude-in-base-units [] factor)
     (unit [] this)
@@ -100,10 +100,10 @@
     (equals [#^::unit* o]
       (or (identical? this o)
 	  (and (identical? (type o) ::unit*)
-	       (= (dimension this) (dimension o))
+	       (= dim (dimension o))
 	       (= factor (:factor o)))))
     (hashCode []
-      (+ (* 31 (.hashCode factor)) (.hashCode dimension))))
+      (+ (* 31 (.hashCode factor)) (.hashCode dim))))
 
 (deftype quantity
   [m
@@ -346,7 +346,7 @@
   [x y]
   (let [ux  (unit x)
 	uy  (unit y)
-	dim (ga/* (:dimension ux) (:dimension uy))
+	dim (ga/* (dimension ux) (dimension uy))
 	ctor (if (= (:name dim) 'dimensionless)
 	       #(* (:factor ux) (:factor uy) %)
 	       (get-unit (* (:factor ux) (:factor uy)) dim))]
@@ -363,7 +363,7 @@
 (ga/defmethod* ga / ::quantity
   [x]
   (let [u (unit x)
-	uinv (get-unit (/ (:factor u)) ((ga/qsym ga /) (:dimension u)))]
+	uinv (get-unit (/ (:factor u)) ((ga/qsym ga /) (dimension u)))]
     (uinv ((ga/qsym ga /) (magnitude x)))))
 
 (defmethod ga/+ [::quantity ::quantity]
@@ -411,16 +411,18 @@
   (let [type-kw    (keyword (str (ns-name *ns*)) (str name))
 	query-name (symbol (str name "?"))]
     `(let [exp# ~exponents]
-       (def ~name (make-dimension ~unit-system exp# ~(list 'quote name)))
-       (def ~query-name (partial dimension? ~name)))))
+       (def ~(symbol (str *ns*) (str name))
+         (make-dimension ~unit-system exp# ~(list 'quote name)))
+       (def ~(symbol (str *ns*) (str query-name))
+         (partial dimension? ~name)))))
 
 (defmacro defunit
   ([unit-symbol unit-name factor dimension]
-   `(def ~unit-symbol
+   `(def ~(symbol (str *ns*) (str unit-symbol))
       (make-unit ~factor ~dimension
 		 (quote ~(symbol unit-name)) (quote ~unit-symbol))))
   ([unit-symbol unit-name quantity]
-   `(def ~unit-symbol
+   `(def ~(symbol (str *ns*) (str unit-symbol))
       (as-unit ~quantity (quote ~(symbol unit-name)) (quote ~unit-symbol)))))
 
 (defmacro defdimension
@@ -470,3 +472,15 @@
 	 (make-dimension ~us-name exp# (quote ~'dimensionless)))
        ~@dimension-defs
        ~@unit-defs)))
+
+(defmacro defprefixedunits
+  [unit-system exclusions & prefixes]
+  (let [units     (apply concat
+			 (map vals (vals (@@(resolve unit-system) :units))))
+	units     (filter (complement #(contains? (set exclusions) %)) units)
+	unit-defs (for [u units
+			[s p f] (partition 3 prefixes)]
+		    `(defunit ~(symbol (str s (:symbol u)))
+		       ~(str p (:name u))
+		       (ga/* ~f ~(symbol (str *ns*) (str (:symbol u))))))]
+    `(do ~@unit-defs)))
