@@ -1,7 +1,7 @@
 ;; Units and physical quantities
 
 ;; by Konrad Hinsen
-;; last updated March 9, 2010
+;; last updated March 10, 2010
 
 ;; Copyright (c) Konrad Hinsen, 2010. All rights reserved.  The use
 ;; and distribution terms for this software are covered by the Eclipse
@@ -122,7 +122,14 @@
 	       (gc/= (magnitude-in-base-units this)
 		     (magnitude-in-base-units o)))))
     (hashCode []
-      (+ (* 31 (.hashCode m)) (.hashCode u))))
+      (+ (* 31 (.hashCode m)) (.hashCode u)))
+  Comparable
+    (compareTo [o]
+      (when (not (and (identical? (type o) ::quantity)
+		      (= (dimension this) (dimension o))))
+	(throw (ClassCastException.)))
+      (compare (magnitude-in-base-units this)
+	       (magnitude-in-base-units o))))
 
 ;
 ; Error checking
