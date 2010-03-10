@@ -1,4 +1,5 @@
 * Features
+** DONE Write unit tests
 ** DONE Check for dimensionless result in multiplication and division
 ** DONE Implement defunit
 ** DONE Implement equality
@@ -7,4 +8,10 @@
 ** DONE Implement SI prefixes
 ** TODO Permit multiple dimensions with identical powers of base dimensions
 Example: frequency (Hz) and decay rate (Bq) are both 1/time
-** DONE Write unit tests
+** TODO Implement units with offsets
+Application: degrees C and F
+Idea: create a separate type storing the differential unit
+and the offset. Implement multiplication and division by
+converting to an offset-free unit first. Return the
+differential unit from subtraction. Permit addition only
+with the differential unit.
