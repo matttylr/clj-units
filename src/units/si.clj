@@ -162,7 +162,7 @@
 ;
 
 (defunit eV "electronvolt" (* 1.60217733e-19 C V))
-(defunit meV "microelectronvolt" (* 1/1000 eV))
+(defunit meV "millielectronvolt" (* 1/1000 eV))
 (defunit μeV "microelectronvolt" (* 1/1000 meV))
 
 (defunit amu "atomic-mass-unit" (* 1.6605402e-27 kg))
