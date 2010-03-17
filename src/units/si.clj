@@ -48,12 +48,10 @@
 (defdimension pressure "pascal" Pa
   [force 1 area -1])
 
-(comment
 (defdimension angle "radian" rad
-  [])
+  [length 1 length -1])
 (defdimension solid-angle "steradian" sr
-  [])
-)
+  [area 1 area -1])
 
 ;
 ; Electrical dimensions and units
@@ -79,8 +77,7 @@
 ; Other dimensions and units
 ;
 (defdimension luminous-flux "lumen" lm
-  [luminous-intensity 1
-   (comment solid-angle 1)])
+  [luminous-intensity 1 solid-angle 1])
 
 (defdimension illuminance "lux" lx
   [luminous-flux 1 area -1])
@@ -137,7 +134,7 @@
 (defunit h "hour" (* 60 min))
 (defunit d "day" (* 24 h))
 
-(comment (defunit deg "degree" (* (/ Math/PI 180) rad)))
+(defunit deg "degree" (* (/ Math/PI 180) rad))
 
 (defunit ha "hectare" (* 10000 m m))
 

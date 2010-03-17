@@ -6,7 +6,7 @@
 ** DONE Implement generic comparison
 ** DONE Implement unit lookup (as for dimensions)
 ** DONE Implement SI prefixes
-** TODO Permit multiple dimensions with identical powers of base dimensions
+** DONE Permit multiple dimensions with identical powers of base dimensions
 Example: frequency (Hz) and decay rate (Bq) are both 1/time
 ** TODO Implement units with offsets
 Application: degrees C and F

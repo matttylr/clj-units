@@ -1,7 +1,7 @@
 ;; Tests for SI units
 
 ;; by Konrad Hinsen
-;; last updated March 8, 2010
+;; last updated March 17, 2010
 
 ;; Copyright (c) Konrad Hinsen, 2010. All rights reserved.  The use
 ;; and distribution terms for this software are covered by the Eclipse
@@ -41,10 +41,13 @@
        (+ (m 20) (m 30))  (m 50)
        (+ (km 5) (m 25))  (m 5025)
        (* (N 3) (m 2/3))  (J 2)
-       (* 2 N m)          (* 2 J))
+       (* 2 N m)          (* 2 J)
+       (+ (Hz 1) (/ 1 s)) (Hz 2)
+       (+ (Bq 1) (/ 1 s)) (Bq 2))
   (are [x] (thrown? Exception x)
        (+ (m -3) (s 5))
-       (- (kg 4) (J 3))))
+       (- (kg 4) (J 3))
+       (+ (Bq 2) (Hz 3))))
 
 (deftest quantity-comparison
   (are [x] x
