@@ -1,7 +1,7 @@
 ;; Units and physical quantities
 
 ;; by Konrad Hinsen
-;; last updated March 10, 2010
+;; last updated March 17, 2010
 
 ;; Copyright (c) Konrad Hinsen, 2010. All rights reserved.  The use
 ;; and distribution terms for this software are covered by the Eclipse
@@ -67,6 +67,9 @@
 ; Types
 ;
 
+(declare base-dimensions-with-exponents
+	 base-unit-symbols-with-exponents)
+
 (deftype dimension*
   [unit-system
    exponents
@@ -77,9 +80,17 @@
       (or (identical? this o)
 	  (and (identical? (type o) ::dimension*)
 	       (identical? unit-system (:unit-system o))
-	       (= exponents (:exponents o)))))
+	       (= exponents (:exponents o))
+	       (= name (:name o)))))
     (hashCode []
-      (+ (.hashCode exponents))))
+      (let [he (.hashCode exponents)]
+	(if name
+	  (+ (* 31 he) (.hashCode name))
+	  he)))
+    (toString []
+      (if name
+	(str name)
+	(base-dimensions-with-exponents this))))
 
 (declare quantity)
 
@@ -103,7 +114,11 @@
 	       (= dim (dimension o))
 	       (= factor (:factor o)))))
     (hashCode []
-      (+ (* 31 (.hashCode factor)) (.hashCode dim))))
+      (+ (* 31 (.hashCode factor)) (.hashCode dim)))
+    (toString []
+      (if name
+	(str name)
+	(str factor "." (base-unit-symbols-with-exponents dim)))))
 
 (deftype quantity
   [m
@@ -132,8 +147,12 @@
 	       (magnitude-in-base-units o))))
 
 ;
-; Error checking
+; Testing and error checking
 ;
+
+(defn- unnamed?
+  [#^::dimension* dim]
+  (nil? (:name dim)))
 
 (defn- assert-same-unit-system
   [d1 d2]
@@ -143,12 +162,18 @@
       (throw (Exception. (str "Can't combine units from "
 			      (@us1 :name) " and " (@us2 :name)))))))
 
-(defn- assert-same-dimension
+(defn- compatible?
+  [d1 d2]
+  (assert-same-unit-system d1 d2)
+  (or (identical? d1 d2)
+      (and (= (:exponents d1) (:exponents d2))
+	   (or (unnamed? d1) (unnamed? d2)))))
+
+(defn- assert-compatible-dimension
   [u1 u2]
   (let [d1 (dimension u1)
 	d2 (dimension u2)]
-    (assert-same-unit-system d1 d2)
-    (when-not (identical? d1 d2)
+    (when-not (compatible? d1 d2)
       (throw (Exception. (str "cannot convert " d1 " to " d2))))))
 
 ;
@@ -162,7 +187,15 @@
   ([unit-system exponents name]
    (let [dim (dimension* unit-system exponents name)]
      (dosync
-       (alter unit-system assoc exponents dim)
+       (alter unit-system
+	      (fn [us-map]
+		(let [old-dim (get us-map exponents)]
+		  (assoc us-map exponents
+			 (cond (nil? old-dim)     dim
+			       (unnamed? old-dim) old-dim
+			       :else              (dimension*
+						     unit-system
+						     exponents nil))))))
        (when name
 	 (alter unit-system assoc name dim)))
      dim)))
@@ -317,15 +350,20 @@
    must have the same dimension as the quantity."
   [new-unit quantity]
   (let [old-unit (unit quantity)]
-    (assert-same-dimension old-unit new-unit)
+    (assert-compatible-dimension old-unit new-unit)
     (let [factor (/ (:factor old-unit) (:factor new-unit))]
       (new-unit (ga/* factor (magnitude quantity))))))
 
 (defn dimension?
-  "Return true if dim is the dimension of quantity."
+  "Return true if dim is a dimension compatible with quantity.
+   Two dimensions are compatible if they have the same set of exponents
+   with respect to the base units and if they are either identical or
+   one of them is unnamed.
+   Example: in the SI system, 1/s is compatible with both Hz and Bq,
+            but Hz and Bq are not compatible."
   [dim quantity]
   (and (contains? #{::quantity ::unit*} (type quantity))
-       (= dim (dimension quantity))))
+       (compatible? dim (dimension quantity))))
 
 ;
 ; Generic arithmethic for dimensions

@@ -1,7 +1,7 @@
 ;; SI unit system
 
 ;; by Konrad Hinsen
-;; last updated March 10, 2010
+;; last updated March 17, 2010
 
 ;; Copyright (c) Konrad Hinsen, 2010. All rights reserved.  The use
 ;; and distribution terms for this software are covered by the Eclipse
@@ -85,7 +85,6 @@
 (defdimension illuminance "lux" lx
   [luminous-flux 1 area -1])
 
-(comment
 (defdimension radioactivity "becquerel" Bq
   [time -1])
 
@@ -94,7 +93,6 @@
 
 (defdimension equivalent-dose "sievert" Sv
   [energy 1 mass -1])
-)
 
 (defdimension catalytic-activity "katal" kat
   [amount-of-substance 1 time -1])
