@@ -1,7 +1,7 @@
 ;; Units and physical quantities
 
 ;; by Konrad Hinsen
-;; last updated March 17, 2010
+;; last updated March 19, 2010
 
 ;; Copyright (c) Konrad Hinsen, 2010. All rights reserved.  The use
 ;; and distribution terms for this software are covered by the Eclipse
@@ -43,6 +43,7 @@
    the stable API of this library."
   (:require [clojure.contrib.generic.arithmetic :as ga]
 	    [clojure.contrib.generic.comparison :as gc]
+	    [clojure.contrib.generic.math-functions :as gm]
 	    [clojure.contrib.string :as string])
   (:from clojure.contrib.generic root-type))
 
@@ -153,6 +154,10 @@
 (defn- unnamed?
   [#^::dimension* dim]
   (nil? (:name dim)))
+
+(defn- dimensionless?
+  [x]
+  (every? zero? (:exponents (dimension x))))
 
 (defn- assert-same-unit-system
   [d1 d2]
@@ -444,6 +449,61 @@
 (defmethod gc/= [::quantity ::quantity]
   [x y]
   (gc/zero? (magnitude (ga/- x y))))
+
+;
+; Generic math functions
+;
+
+(defmethod gm/abs ::quantity
+  [x]
+  ((unit x) (gm/abs (magnitude x))))
+
+(defmethod gm/sgn ::quantity
+  [x]
+  (gm/sgn (magnitude x)))
+
+(defn- fn-nodim-arg
+  [f x]
+  (when-not (dimensionless? x)
+    (throw (Exception. "argument must be dimensionless")))
+  (f (magnitude-in-base-units x)))
+
+(doseq [f [gm/sin gm/cos gm/tan gm/asin gm/acos gm/atan gm/exp gm/log]]
+  (defmethod f ::quantity [x] (fn-nodim-arg f x)))
+
+(defmethod gm/atan2 [::quantity ::quantity]
+  [x y]
+  (let [y (in-units-of (unit x) y)]
+    (gm/atan2 (magnitude x) (magnitude y))))
+
+(defn- int-pow
+  [#^::quantity x #^Integer y]
+  (apply ga/* (repeat y x)))
+
+(defn- ratio-pow
+  [#^::quantity x #^clojure.lang.Ratio y]
+  (let [dim       (dimension x)
+	exponents (map #(* y %) (:exponents dim))]
+    (when-not (every? integer? exponents)
+      (throw (Exception. (str "cannot take " dim " to power " y))))
+    (let [dim (get-dimension (:unit-system dim) exponents)
+	  u   (get-unit 1 dim)]
+      (u (gm/pow (magnitude-in-base-units x) y)))))
+
+(defmethod gm/pow [::quantity Number]
+  [x y]
+  (cond (dimensionless? x)  (gm/pow (magnitude-in-base-units x))
+	(zero? y)           1
+	(= y 1)             x
+	(integer? y)        (int-pow x y)
+	(ratio? y)          (ratio-pow x y)
+	:else               (throw (Exception. (str "cannot take unit to "
+						    (type y) " power")))))
+
+(defmethod gm/sqrt ::quantity
+  [x]
+  (ratio-pow x 1/2))
+
 
 ;
 ; Macros for defining unit systems, dimensions, and units

@@ -1,7 +1,7 @@
 ;; Tests for SI units
 
 ;; by Konrad Hinsen
-;; last updated March 17, 2010
+;; last updated March 19, 2010
 
 ;; Copyright (c) Konrad Hinsen, 2010. All rights reserved.  The use
 ;; and distribution terms for this software are covered by the Eclipse
@@ -15,6 +15,7 @@
 (ns+ si-tests
   (:clone units.si)
   (:from units dimension?)
+  (:require [clojure.contrib.generic.math-functions :as gm])
   (:from clojure.test deftest is are run-tests))
 
 (deftest dimension-arithmetic
@@ -30,11 +31,13 @@
 
 (deftest dimensions-of
   (are [x y] (dimension? y x)
-       m        length
-       kg       mass
-       (/ m s)  velocity
-       (/ C s)  electric-current
-       (* N m)  energy))
+       m               length
+       kg              mass
+       (/ m s)         velocity
+       (/ C s)         electric-current
+       (* N m)         energy
+       (/ N (* m m))   pressure
+       (/ J (* m m m)) (/ energy volume)))
 
 (deftest quantity-arithmetic
   (are [x y] (= x y)
@@ -62,5 +65,16 @@
        (< (m -3) (s 5))
        (> (kg 4) (J 3))))
   
+(deftest math-functions
+  (are [x y] (= x y)
+       (sin (deg 90)) 	   1
+       (abs (m 2))    	   (m 2)
+       (abs (m -3))   	   (m 3)
+       (sgn (s 2))    	   1
+       (sgn (s 0))    	   0
+       (sgn (s -1))   	   -1
+       (pow (m 2) 3)  	   (* 8 m m m)
+       (sqrt (* m m)) 	   (m 1)
+       (atan2 (m 3) (m 3)) (/ Math/PI 4)))
 
 (run-tests)
