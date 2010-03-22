@@ -1,7 +1,7 @@
 ;; Units and physical quantities
 
 ;; by Konrad Hinsen
-;; last updated March 19, 2010
+;; last updated March 22, 2010
 
 ;; Copyright (c) Konrad Hinsen, 2010. All rights reserved.  The use
 ;; and distribution terms for this software are covered by the Eclipse
@@ -28,11 +28,17 @@
    base dimensions. Other units are defined as products of integer powers
    of the base dimensions plus a numerical prefactor.
 
-   The generic arithmeric of clojure.contrib.generic.arithmetic is
-   implemented for quantities. Units can also be supplied as parameters,
-   but the result is always a quantity. Units and quantities can be
-   mutiplied with numbers, yielding quantities. Multiplication and
-   division are also implemented for dimensions, yielding dimensions.
+   The generic arithmetic of clojure.contrib.generic.arithmetic is
+   implemented for quantities. Units can also be supplied as
+   parameters, but the result is always a quantity. Units and
+   quantities can be mutiplied with numbers, yielding quantities.
+   Multiplication and division are also implemented for dimensions,
+   yielding dimensions. The generic math functions of
+   clojure.contrib.generic.math-functions are implemented for
+   quantities as far as possible: rounding and truncation to integers
+   are not implemented, and power is implemented with integer and
+   ratio exponents only. The generic comparison functions of
+   clojure.contrib.generic.comparison are implemented for quantities.
 
    The expected use of this library is to define a unit system with its
    base dimensions and units using the defunitsystem macro and then adding
@@ -47,6 +53,7 @@
 	    [clojure.contrib.string :as string])
   (:from clojure.contrib.generic root-type))
 
+(set! *warn-on-reflection* true)
 
 ;
 ; Protocols
@@ -256,31 +263,31 @@
 			   (map (fn [n e] (case e  0 ""  1 (str n)  (str n e)))
 				names exponents))))
 
-(defn- base-dimensions-with-exponents
+(defn- #^String base-dimensions-with-exponents
   [d]
   (with-exponents (:base-dimensions @(:unit-system d)) (:exponents d)))
 
-(defn- base-units-with-exponents
+(defn- #^String base-units-with-exponents
   [d]
   (with-exponents (:base-unit-names @(:unit-system d)) (:exponents d)))
 
-(defn- base-unit-symbols-with-exponents
+(defn- #^String base-unit-symbols-with-exponents
   [d]
   (with-exponents (:base-unit-symbols @(:unit-system d)) (:exponents d)))
 
-(defn- dimension-name
+(defn- #^String dimension-name
   [d]
   (if-let [n (:name d)]
     n
     (base-dimensions-with-exponents d)))
 
-(defn- unit-name
+(defn- #^String unit-name
   [u]
   (if-let [n (:name u)]
     n
     (base-units-with-exponents (dimension u))))
 
-(defn- unit-symbol
+(defn- #^String unit-symbol
   [u]
   (if-let [n (:symbol u)]
     n
@@ -397,7 +404,7 @@
   (let [ux  (unit x)
 	uy  (unit y)
 	dim (ga/* (dimension ux) (dimension uy))
-	ctor (if (= (:name dim) 'dimensionless)
+	ctor (if (every? zero? (:exponents dim x))
 	       #(* (:factor ux) (:factor uy) %)
 	       (get-unit (* (:factor ux) (:factor uy)) dim))]
   (ctor (ga/* (magnitude x) (magnitude y)))))
@@ -504,7 +511,6 @@
   [x]
   (ratio-pow x 1/2))
 
-
 ;
 ; Macros for defining unit systems, dimensions, and units
 ;
@@ -522,6 +528,8 @@
          (partial dimension? ~name)))))
 
 (defmacro defunit
+  "Define a new unit named unit-name as factor times the base unit
+   of dimension. The unit is assigned to unit-symbol."
   ([unit-symbol unit-name factor dimension]
    `(def ~(symbol (str *ns*) (str unit-symbol))
       (make-unit ~factor ~dimension
@@ -579,6 +587,9 @@
        ~@unit-defs)))
 
 (defmacro defprefixedunits
+  "Define the products of all units in unit-system except for thos
+   in exclusions with all listed prefixes. Each prefix is defined by
+   a symbol, a name, and a factor."
   [unit-system exclusions & prefixes]
   (let [units     (apply concat
 			 (map vals (vals (@@(resolve unit-system) :units))))
