@@ -1,0 +1,12 @@
+This Clojure library defines data types that represent dimensions
+(length, time, mass, ...), units (m, km, ft, ...), and physical
+quantities (2 meters, 3 hours, ...). It allows the definition of any
+number of unit systems, even though for most applications in physics
+the SI unit system (provided with the library) should be sufficient.
+
+This library uses the still experimental deftype construct in the
+current development branch of Clojure. For this reason, this library
+cannot be considered ready for production code yet.
+
+There isn't much documentation yet. Check out the docstrings and the
+scripts under "examples".
