@@ -82,20 +82,19 @@
   [unit-system
    exponents
    name]
-  :as this
   Object
-    (equals [#^ ::dimension* o]
+    (equals [this #^ ::dimension* o]
       (or (identical? this o)
 	  (and (identical? (type o) ::dimension*)
 	       (identical? unit-system (:unit-system o))
 	       (= exponents (:exponents o))
 	       (= name (:name o)))))
-    (hashCode []
+    (hashCode [this]
       (let [he (.hashCode exponents)]
 	(if name
 	  (+ (* 31 he) (.hashCode name))
 	  he)))
-    (toString []
+    (toString [this]
       (if name
 	(str name)
 	(base-dimensions-with-exponents this))))
@@ -107,23 +106,22 @@
    #^::dimension* dim
    #^clojure.lang.Symbol name
    #^clojure.lang.Symbol symbol]
-  :as this
   clojure.lang.IFn
-    (invoke [x] (quantity x this))
+    (invoke [this x] (quantity x this))
   Quantity
-    (dimension [] dim)
-    (magnitude [] 1)
-    (magnitude-in-base-units [] factor)
-    (unit [] this)
+    (dimension [this] dim)
+    (magnitude [this] 1)
+    (magnitude-in-base-units [this] factor)
+    (unit [this] this)
   Object
-    (equals [#^::unit* o]
+    (equals [this #^::unit* o]
       (or (identical? this o)
 	  (and (identical? (type o) ::unit*)
 	       (= dim (dimension o))
 	       (= factor (:factor o)))))
-    (hashCode []
+    (hashCode [this]
       (+ (* 31 (.hashCode factor)) (.hashCode dim)))
-    (toString []
+    (toString [this]
       (if name
 	(str name)
 	(str factor "." (base-unit-symbols-with-exponents dim)))))
@@ -131,23 +129,22 @@
 (deftype quantity
   [m
    #^::unit* u]
-  :as this
   Quantity
-    (dimension [] (dimension u))
-    (magnitude [] m)
-    (magnitude-in-base-units [] (ga/* m (magnitude-in-base-units u)))
-    (unit [] u)
+    (dimension [this] (dimension u))
+    (magnitude [this] m)
+    (magnitude-in-base-units [this] (ga/* m (magnitude-in-base-units u)))
+    (unit [this] u)
   Object
-    (equals [#^::quantity o]
+    (equals [this #^::quantity o]
       (or (identical? this o)
 	  (and (identical? (type o) ::quantity)
 	       (= (dimension this) (dimension o))
 	       (gc/= (magnitude-in-base-units this)
 		     (magnitude-in-base-units o)))))
-    (hashCode []
+    (hashCode [this]
       (+ (* 31 (.hashCode m)) (.hashCode u)))
   Comparable
-    (compareTo [o]
+    (compareTo [this o]
       (when (not (and (identical? (type o) ::quantity)
 		      (= (dimension this) (dimension o))))
 	(throw (ClassCastException.)))
