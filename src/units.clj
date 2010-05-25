@@ -1,7 +1,7 @@
 ;; Units and physical quantities
 
 ;; by Konrad Hinsen
-;; last updated March 22, 2010
+;; last updated May 19, 2010
 
 ;; Copyright (c) Konrad Hinsen, 2010. All rights reserved.  The use
 ;; and distribution terms for this software are covered by the Eclipse
@@ -51,7 +51,10 @@
 	    [clojure.contrib.generic.comparison :as gc]
 	    [clojure.contrib.generic.math-functions :as gm]
 	    [clojure.contrib.string :as string])
-  (:from clojure.contrib.generic root-type))
+  (:from clojure.contrib.generic root-type)
+  (:from methods-a-la-carte.core deftype+)
+  (:from methods-a-la-carte.implementations metadata keyword-lookup)
+)
 
 (set! *warn-on-reflection* true)
 
@@ -76,19 +79,24 @@
 ;
 
 (declare base-dimensions-with-exponents
-	 base-unit-symbols-with-exponents)
+	 base-unit-symbols-with-exponents
+	 make-quantity)
 
-(deftype dimension*
+(deftype+ dimension*
   [unit-system
    exponents
-   name]
+   name
+   __meta]
+  ~@(metadata __meta)
+  ~@(keyword-lookup unit-system exponents name)
   Object
-    (equals [this #^ ::dimension* o]
+    (equals [this o]
       (or (identical? this o)
-	  (and (identical? (type o) ::dimension*)
-	       (identical? unit-system (:unit-system o))
-	       (= exponents (:exponents o))
-	       (= name (:name o)))))
+	  (and (identical? (type o) dimension*)
+	       (let [o #^dimension* o]
+		 (and (identical? unit-system (.unit-system o))
+		      (= exponents (.exponents o))
+		      (= name (.name o)))))))
     (hashCode [this]
       (let [he (.hashCode exponents)]
 	(if name
@@ -99,26 +107,28 @@
 	(str name)
 	(base-dimensions-with-exponents this))))
 
-(declare quantity)
-
-(deftype unit*
+(deftype+ unit*
   [#^Number factor
-   #^::dimension* dim
+   #^dimension* dim
    #^clojure.lang.Symbol name
-   #^clojure.lang.Symbol symbol]
+   #^clojure.lang.Symbol symbol
+   __meta]
+  ~@(metadata __meta)
+  ~@(keyword-lookup factor dim name symbol)
   clojure.lang.IFn
-    (invoke [this x] (quantity x this))
+    (invoke [this x] (make-quantity x this))
   Quantity
     (dimension [this] dim)
     (magnitude [this] 1)
     (magnitude-in-base-units [this] factor)
     (unit [this] this)
   Object
-    (equals [this #^::unit* o]
+    (equals [this o]
       (or (identical? this o)
-	  (and (identical? (type o) ::unit*)
-	       (= dim (dimension o))
-	       (= factor (:factor o)))))
+	  (and (identical? (type o) unit*)
+	       (let [o #^unit* o]
+		 (and (= dim (dimension o))
+		      (= factor (.factor o)))))))
     (hashCode [this]
       (+ (* 31 (.hashCode factor)) (.hashCode dim)))
     (toString [this]
@@ -126,18 +136,21 @@
 	(str name)
 	(str factor "." (base-unit-symbols-with-exponents dim)))))
 
-(deftype quantity
+(deftype+ quantity
   [m
-   #^::unit* u]
+   #^unit* u
+   __meta]
+  ~@(metadata __meta)
+  ~@(keyword-lookup m u)
   Quantity
     (dimension [this] (dimension u))
     (magnitude [this] m)
     (magnitude-in-base-units [this] (ga/* m (magnitude-in-base-units u)))
     (unit [this] u)
   Object
-    (equals [this #^::quantity o]
+    (equals [this o]
       (or (identical? this o)
-	  (and (identical? (type o) ::quantity)
+	  (and (identical? (type o) quantity)
 	       (= (dimension this) (dimension o))
 	       (gc/= (magnitude-in-base-units this)
 		     (magnitude-in-base-units o)))))
@@ -145,18 +158,22 @@
       (+ (* 31 (.hashCode m)) (.hashCode u)))
   Comparable
     (compareTo [this o]
-      (when (not (and (identical? (type o) ::quantity)
+      (when (not (and (identical? (type o) quantity)
 		      (= (dimension this) (dimension o))))
 	(throw (ClassCastException.)))
       (compare (magnitude-in-base-units this)
 	       (magnitude-in-base-units o))))
+
+(defn- make-quantity
+  [amount unit]
+  (new quantity amount unit))
 
 ;
 ; Testing and error checking
 ;
 
 (defn- unnamed?
-  [#^::dimension* dim]
+  [#^dimension* dim]
   (nil? (:name dim)))
 
 (defn- dimensionless?
@@ -194,7 +211,7 @@
   ([unit-system exponents]
    (make-dimension unit-system exponents nil))
   ([unit-system exponents name]
-   (let [dim (dimension* unit-system exponents name)]
+   (let [dim (new dimension* unit-system exponents name)]
      (dosync
        (alter unit-system
 	      (fn [us-map]
@@ -202,7 +219,7 @@
 		  (assoc us-map exponents
 			 (cond (nil? old-dim)     dim
 			       (unnamed? old-dim) old-dim
-			       :else              (dimension*
+			       :else              (new dimension*
 						     unit-system
 						     exponents nil))))))
        (when name
@@ -223,7 +240,7 @@
    (make-unit factor dimension nil nil))
   ([factor dimension name symbol]
    (let [unit-system (:unit-system dimension)
-	 u           (unit* factor dimension name symbol)]
+	 u           (new unit* factor dimension name symbol)]
      (dosync
        (alter unit-system assoc-in [:units dimension factor] u)
        (when name
@@ -290,7 +307,7 @@
     n
     (base-unit-symbols-with-exponents (dimension u))))
 
-(defmethod print-method ::dimension*
+(defmethod print-method dimension*
   [d #^java.io.Writer w]
   (let [us @(:unit-system d)
 	base? (contains? (set (:base-dimensions us)) (:name d))]
@@ -306,8 +323,8 @@
       (.write w (base-dimensions-with-exponents d)))
     (.write w "}")))
 
-(defmethod print-method ::unit*
-  [u #^java.io.Writer w]
+(defmethod print-method unit*
+  [#^unit* u #^java.io.Writer w]
   (let [d (dimension u)
 	us @(:unit-system d)
 	base? (contains? (set (:base-unit-names us)) (:name u))]
@@ -332,8 +349,8 @@
       (.write w (base-unit-symbols-with-exponents (dimension u))))
     (.write w "}")))
 
-(defmethod print-method ::quantity
-  [#^::quantity x #^java.io.Writer w]
+(defmethod print-method quantity
+  [#^quantity x #^java.io.Writer w]
   (let [u (unit x)
 	d (dimension x)]
     (.write w "#:")
@@ -370,22 +387,22 @@
    one of them is unnamed.
    Example: in the SI system, 1/s is compatible with both Hz and Bq,
             but Hz and Bq are not compatible."
-  [dim quantity]
-  (and (contains? #{::quantity ::unit*} (type quantity))
-       (compatible? dim (dimension quantity))))
+  [dim quant]
+  (and (contains? #{quantity unit*} (type quant))
+       (compatible? dim (dimension quant))))
 
 ;
 ; Generic arithmethic for dimensions
 ;
 
-(derive ::dimension* root-type)
+(derive dimension* root-type)
 
-(defmethod ga/* [::dimension* ::dimension*]
+(defmethod ga/* [dimension* dimension*]
   [d1 d2]
   (assert-same-unit-system d1 d2)
   (get-dimension (:unit-system d1) (map + (:exponents d1) (:exponents d2))))
 
-(ga/defmethod* ga / ::dimension*
+(ga/defmethod* ga / dimension*
   [d]
   (get-dimension (:unit-system d) (map - (:exponents d))))
 
@@ -394,14 +411,15 @@
 ;
 
 (derive ::quantity root-type)
-(derive ::unit* ::quantity)
+(derive quantity ::quantity)
+(derive unit* ::quantity)
 
 (defmethod ga/* [::quantity ::quantity]
   [x y]
   (let [ux  (unit x)
 	uy  (unit y)
 	dim (ga/* (dimension ux) (dimension uy))
-	ctor (if (every? zero? (:exponents dim x))
+	ctor (if (every? zero? (:exponents dim))
 	       #(* (:factor ux) (:factor uy) %)
 	       (get-unit (* (:factor ux) (:factor uy)) dim))]
   (ctor (ga/* (magnitude x) (magnitude y)))))
@@ -458,11 +476,11 @@
 ; Generic math functions
 ;
 
-(defmethod gm/abs ::quantity
+(defmethod gm/abs quantity
   [x]
   ((unit x) (gm/abs (magnitude x))))
 
-(defmethod gm/sgn ::quantity
+(defmethod gm/sgn quantity
   [x]
   (gm/sgn (magnitude x)))
 
@@ -473,19 +491,19 @@
   (f (magnitude-in-base-units x)))
 
 (doseq [f [gm/sin gm/cos gm/tan gm/asin gm/acos gm/atan gm/exp gm/log]]
-  (defmethod f ::quantity [x] (fn-nodim-arg f x)))
+  (defmethod f quantity [x] (fn-nodim-arg f x)))
 
-(defmethod gm/atan2 [::quantity ::quantity]
+(defmethod gm/atan2 [quantity quantity]
   [x y]
   (let [y (in-units-of (unit x) y)]
     (gm/atan2 (magnitude x) (magnitude y))))
 
 (defn- int-pow
-  [#^::quantity x #^Integer y]
+  [#^quantity x #^Integer y]
   (apply ga/* (repeat y x)))
 
 (defn- ratio-pow
-  [#^::quantity x #^clojure.lang.Ratio y]
+  [#^quantity x #^clojure.lang.Ratio y]
   (let [dim       (dimension x)
 	exponents (map #(* y %) (:exponents dim))]
     (when-not (every? integer? exponents)
@@ -494,7 +512,7 @@
 	  u   (get-unit 1 dim)]
       (u (gm/pow (magnitude-in-base-units x) y)))))
 
-(defmethod gm/pow [::quantity Number]
+(defmethod gm/pow [quantity Number]
   [x y]
   (cond (dimensionless? x)  (gm/pow (magnitude-in-base-units x))
 	(zero? y)           1
@@ -504,7 +522,7 @@
 	:else               (throw (Exception. (str "cannot take unit to "
 						    (type y) " power")))))
 
-(defmethod gm/sqrt ::quantity
+(defmethod gm/sqrt quantity
   [x]
   (ratio-pow x 1/2))
 
