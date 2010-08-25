@@ -1,7 +1,7 @@
 ;; Units and physical quantities
 
 ;; by Konrad Hinsen
-;; last updated May 19, 2010
+;; last updated August 25, 2010
 
 ;; Copyright (c) Konrad Hinsen, 2010. All rights reserved.  The use
 ;; and distribution terms for this software are covered by the Eclipse
@@ -93,7 +93,7 @@
     (equals [this o]
       (or (identical? this o)
 	  (and (identical? (type o) dimension*)
-	       (let [o #^dimension* o]
+	       (let [o ^dimension* o]
 		 (and (identical? unit-system (.unit-system o))
 		      (= exponents (.exponents o))
 		      (= name (.name o)))))))
@@ -108,10 +108,10 @@
 	(base-dimensions-with-exponents this))))
 
 (deftype+ unit*
-  [#^Number factor
-   #^dimension* dim
-   #^clojure.lang.Symbol name
-   #^clojure.lang.Symbol symbol
+  [^Number factor
+   ^dimension* dim
+   ^clojure.lang.Symbol name
+   ^clojure.lang.Symbol symbol
    __meta]
   ~@(metadata __meta)
   ~@(keyword-lookup factor dim name symbol)
@@ -126,7 +126,7 @@
     (equals [this o]
       (or (identical? this o)
 	  (and (identical? (type o) unit*)
-	       (let [o #^unit* o]
+	       (let [o ^unit* o]
 		 (and (= dim (dimension o))
 		      (= factor (.factor o)))))))
     (hashCode [this]
@@ -138,7 +138,7 @@
 
 (deftype+ quantity
   [m
-   #^unit* u
+   ^unit* u
    __meta]
   ~@(metadata __meta)
   ~@(keyword-lookup m u)
@@ -173,7 +173,7 @@
 ;
 
 (defn- unnamed?
-  [#^dimension* dim]
+  [^dimension* dim]
   (nil? (:name dim)))
 
 (defn- dimensionless?
@@ -277,38 +277,38 @@
 			   (map (fn [n e] (case e  0 ""  1 (str n)  (str n e)))
 				names exponents))))
 
-(defn- #^String base-dimensions-with-exponents
+(defn- ^String base-dimensions-with-exponents
   [d]
   (with-exponents (:base-dimensions @(:unit-system d)) (:exponents d)))
 
-(defn- #^String base-units-with-exponents
+(defn- ^String base-units-with-exponents
   [d]
   (with-exponents (:base-unit-names @(:unit-system d)) (:exponents d)))
 
-(defn- #^String base-unit-symbols-with-exponents
+(defn- ^String base-unit-symbols-with-exponents
   [d]
   (with-exponents (:base-unit-symbols @(:unit-system d)) (:exponents d)))
 
-(defn- #^String dimension-name
+(defn- ^String dimension-name
   [d]
   (if-let [n (:name d)]
     n
     (base-dimensions-with-exponents d)))
 
-(defn- #^String unit-name
+(defn- ^String unit-name
   [u]
   (if-let [n (:name u)]
     n
     (base-units-with-exponents (dimension u))))
 
-(defn- #^String unit-symbol
+(defn- ^String unit-symbol
   [u]
   (if-let [n (:symbol u)]
     n
     (base-unit-symbols-with-exponents (dimension u))))
 
 (defmethod print-method dimension*
-  [d #^java.io.Writer w]
+  [d ^java.io.Writer w]
   (let [us @(:unit-system d)
 	base? (contains? (set (:base-dimensions us)) (:name d))]
     (.write w "#:dimension")
@@ -324,7 +324,7 @@
     (.write w "}")))
 
 (defmethod print-method unit*
-  [#^unit* u #^java.io.Writer w]
+  [^unit* u ^java.io.Writer w]
   (let [d (dimension u)
 	us @(:unit-system d)
 	base? (contains? (set (:base-unit-names us)) (:name u))]
@@ -350,7 +350,7 @@
     (.write w "}")))
 
 (defmethod print-method quantity
-  [#^quantity x #^java.io.Writer w]
+  [^quantity x ^java.io.Writer w]
   (let [u (unit x)
 	d (dimension x)]
     (.write w "#:")
@@ -499,11 +499,11 @@
     (gm/atan2 (magnitude x) (magnitude y))))
 
 (defn- int-pow
-  [#^quantity x #^Integer y]
+  [^quantity x ^Integer y]
   (apply ga/* (repeat y x)))
 
 (defn- ratio-pow
-  [#^quantity x #^clojure.lang.Ratio y]
+  [^quantity x ^clojure.lang.Ratio y]
   (let [dim       (dimension x)
 	exponents (map #(* y %) (:exponents dim))]
     (when-not (every? integer? exponents)
