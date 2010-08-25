@@ -2,3 +2,6 @@ syntax: glob
 
 lib
 classes
+.cake
+pom.xml
+*.jar
